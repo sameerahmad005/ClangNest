@@ -24,7 +24,7 @@ import { AiSettingsDialog } from "./components/AiSettingsDialog";
 const DEFAULT_SOURCE = `#include <iostream>
 
 int main() {
-    std::cout << "Hello, World!\\n";
+    // Write your C++23 solution here.
     return 0;
 }`;
 

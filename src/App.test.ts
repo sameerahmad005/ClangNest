@@ -49,6 +49,17 @@ it("opens settings instead of attempting generation with a missing credential", 
   expect(host.textContent).toContain("Choose a provider, add your API key");
 });
 
+it("resets to a basic editable C++ template instead of a completed Hello World program", async () => {
+  await mount();
+  const editor = host.querySelector<HTMLTextAreaElement>('.editor-wrap textarea')!;
+  await act(async () => { editor.value = "changed source"; Simulate.change(editor); });
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  await click("Reset");
+  expect(host.querySelector<HTMLTextAreaElement>('.editor-wrap textarea')?.value).toContain("// Write your C++23 solution here.");
+  expect(host.querySelector<HTMLTextAreaElement>('.editor-wrap textarea')?.value).not.toContain("Hello, World!");
+  vi.restoreAllMocks();
+});
+
 it("generates a left-hand problem without replacing code, fills stdin, and passes both cases", async () => {
   await mount(); await click("Generate question");
   expect(generateProblem).toHaveBeenCalledWith(expect.objectContaining({ provider: "gemini" }), "Arrays", "Easy", expect.any(AbortSignal), expect.any(Function));
