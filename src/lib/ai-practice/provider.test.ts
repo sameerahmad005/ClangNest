@@ -1,17 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AiGenerationProgress, AiSettings } from "../../types/practice";
+import type { AiGenerationProgress, AiSettings, Difficulty, DsaTopic } from "../../types/practice";
 import { AI_PROVIDERS, DEFAULT_AI_SETTINGS, generateProblem, listAvailableModels, providerPreset } from "./index";
 
 const fakeKey = "FAKE_TEST_KEY_NOT_A_CREDENTIAL";
 const settings: AiSettings = { ...DEFAULT_AI_SETTINGS, model: "test-generation-model", apiKey: fakeKey };
-const problem = () => ({
-  title: "Sum two integers", statement: "Print the sum of two integers.",
-  inputFormat: "Two integers a and b.", outputFormat: "Their sum followed by a newline.", constraints: "-10 <= a, b <= 10",
+const problem = (topic: DsaTopic = "Arrays", difficulty: Difficulty = "Easy") => {
+  const contract = topic === "Strings"
+    ? {
+      title: "Find a substring in a string", statement: "Given a string, report the first position of a target substring.",
+      inputFormat: "A string and a target substring.", outputFormat: "The substring position followed by a newline.", constraints: "The string may be empty.",
+      explanations: ["The target substring occurs in the string.", "The target is not found in the string."],
+    }
+    : topic === "Graphs"
+      ? {
+        title: "Traverse a graph", statement: "Given a graph with vertices and edges, report a path between two vertices.",
+        inputFormat: "The number of vertices, edges, and undirected graph edges.", outputFormat: "The path or a no path marker.", constraints: "The graph may be disconnected and the target may be unreachable.",
+        explanations: ["The edges connect the vertices along the path.", "No path exists in the disconnected graph."],
+      }
+      : topic === "Sorting"
+        ? {
+          title: "Sort an array", statement: "Sort the array into nondecreasing order.",
+          inputFormat: "An array of integers.", outputFormat: "The sorted array.", constraints: "The array may contain duplicates and may already be sorted.",
+          explanations: ["Sorting arranges the array in nondecreasing order.", "The duplicate values remain in sorted order."],
+        }
+        : {
+          title: "Process an array", statement: "Given an array, report its first element.",
+          inputFormat: "An array of integers.", outputFormat: "The selected array element followed by a newline.", constraints: "The array contains at least one element.",
+          explanations: ["The first element is selected from the array.", "The array lookup returns its first value."],
+  };
+  const { explanations, ...fields } = contract;
+  if (difficulty === "Hard") fields.constraints += " The solution must run in O(n log n) time and use O(1) extra space.";
+  return {
+  ...fields, topic, difficulty,
   testCases: [
-    { input: "2 3\n", expectedOutput: "5\n", explanation: "2 + 3 = 5." },
-    { input: "-1 1\n", expectedOutput: "0\n", explanation: "-1 + 1 = 0." },
+    { input: "2 3\n", expectedOutput: "5\n", explanation: contract.explanations[0] },
+    { input: "-1 1\n", expectedOutput: "0\n", explanation: contract.explanations[1] },
   ],
-});
+};
+};
 const gemini = (content: unknown = problem()) => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: typeof content === "string" ? content : JSON.stringify(content) }] } }] });
 const reply = (payload: unknown, status = 200) => vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status })));
 const openai: AiSettings = { ...settings, provider: "openai-compatible", endpoint: "https://example.test/chat/completions" };
@@ -62,7 +88,7 @@ describe("AI provider requests", () => {
   });
 
   it("posts to the exact full OpenAI-compatible URL with Bearer authentication", async () => {
-    reply({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(problem()) } }] });
+    reply({ choices: [{ finish_reason: "stop", message: { content: JSON.stringify(problem("Graphs", "Hard")) } }] });
     const endpoint = "https://example.test/custom/v1/chat/completions";
     await generateProblem({ ...settings, provider: "openai-compatible", endpoint }, "Graphs", "Hard");
     const [url, options] = vi.mocked(fetch).mock.calls[0];
@@ -79,7 +105,7 @@ describe("AI provider requests", () => {
   });
 
   it("uses native Anthropic messages, ignores thinking blocks, and joins text blocks", async () => {
-    const json = JSON.stringify(problem());
+    const json = JSON.stringify(problem("Arrays", "Easy"));
     reply({ stop_reason: "end_turn", content: [{ type: "thinking", thinking: "private reasoning" }, { type: "text", text: json.slice(0, 20) }, { type: "text", text: json.slice(20) }] });
     const preset = providerPreset("anthropic");
     expect(await generateProblem({ ...settings, provider: preset.id, endpoint: preset.endpoint }, "Arrays", "Easy")).toMatchObject(problem());
@@ -110,11 +136,70 @@ describe("AI provider requests", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it("accepts fenced JSON, ignores model-selected metadata and preserves empty input/output", async () => {
-    const data = { ...problem(), topic: "untrusted", difficulty: "untrusted" };
+  it("accepts fenced JSON with canonical metadata and preserves empty input/output", async () => {
+    const data = { ...problem("Strings", "Medium") };
     data.testCases[0] = { input: "", expectedOutput: "", explanation: "No output is required." };
     reply(gemini(`\`\`\`json\n${JSON.stringify(data)}\n\`\`\``));
     expect(await generateProblem(settings, "Strings", "Medium")).toMatchObject({ topic: "Strings", difficulty: "Medium", testCases: [{ input: "", expectedOutput: "" }, {}] });
+  });
+
+  it("rejects classification metadata that disagrees with the requested Sorting Hard problem", async () => {
+    const data = { ...problem("Sorting", "Hard"), topic: "Arrays" as const, difficulty: "Easy" as const, title: "Sort an array" };
+    reply(gemini(data));
+    await expect(generateProblem(settings, "Sorting", "Hard")).rejects.toThrow(/invalid problem/);
+  });
+
+  it("accepts a valid Sorting Hard contract and stores canonical requested metadata", async () => {
+    reply(gemini(problem("Sorting", "Hard")));
+    await expect(generateProblem(settings, "Sorting", "Hard")).resolves.toMatchObject({ topic: "Sorting", difficulty: "Hard" });
+  });
+
+  it("rejects a generic array sum when Sorting is requested", async () => {
+    const data = {
+      ...problem("Arrays", "Easy"), topic: "Sorting" as const, difficulty: "Easy" as const, title: "Sort an array",
+      statement: "Given an array, print the sum of its values.", inputFormat: "An array of integers.", outputFormat: "The sum.",
+      constraints: "The array contains at least one value.",
+      testCases: [
+        { input: "1 2\n", expectedOutput: "3\n", explanation: "Add the array values." },
+        { input: "4 5\n", expectedOutput: "9\n", explanation: "The total of the array is nine." },
+      ] as [{ input: string; expectedOutput: string; explanation: string }, { input: string; expectedOutput: string; explanation: string }],
+    };
+    reply(gemini(data));
+    await expect(generateProblem(settings, "Sorting", "Easy")).rejects.toThrow(/invalid problem/);
+  });
+
+  it("rejects a graph adjacency-list problem when Arrays is requested", async () => {
+    const data = {
+      ...problem("Arrays", "Easy"),
+      statement: "Given an array of adjacency lists for a graph, report whether two vertices are connected by an edge.",
+      inputFormat: "The vertices, edges, and array of adjacency lists.",
+      outputFormat: "Print whether the graph has the requested edge.",
+      constraints: "The graph may be disconnected.",
+    };
+    reply(gemini(data));
+    await expect(generateProblem(settings, "Arrays", "Easy")).rejects.toThrow(/invalid problem/);
+  });
+
+  it("rejects a trivial problem relabeled as Hard", async () => {
+    const data = {
+      ...problem("Arrays", "Easy"),
+      difficulty: "Hard" as const,
+      constraints: "The array contains at least one element.",
+    };
+    reply(gemini(data));
+    await expect(generateProblem(settings, "Arrays", "Hard")).rejects.toThrow(/invalid problem/);
+  });
+
+  it("accepts an array contract when Arrays is requested", async () => {
+    reply(gemini(problem("Arrays", "Easy")));
+    await expect(generateProblem(settings, "Arrays", "Easy")).resolves.toMatchObject({ topic: "Arrays", difficulty: "Easy" });
+  });
+
+  it.each(["topic", "difficulty"] as const)("rejects a missing %s classification field", missing => {
+    const data = { ...problem("Arrays", "Easy") } as Record<string, unknown>;
+    delete data[missing];
+    reply(gemini(data));
+    return expect(generateProblem(settings, "Arrays", "Easy")).rejects.toThrow(/invalid problem/);
   });
 
   it.each([0, 1, 3])("rejects %i cases instead of exactly two", async count => {
@@ -366,23 +451,17 @@ describe("generation progress and streamed validation", () => {
     console.info(`FAKE-delay timing (fixed identical problem; not live provider speed): JSON first content/completion=1000/1000ms; SSE first preview/completion=${firstPreview}/${validated}ms.`);
   });
 
-  it("reduces local prompt bytes while retaining the problem contract", async () => {
+  it("includes strict classification and topic-specific prompt rules", async () => {
     reply(gemini());
     await generateProblem(settings, "Arrays", "Easy");
     const prompt = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).contents[0].parts[0].text as string;
-    const baseline = `Create one original Easy DSA programming problem about Arrays for C++23.
-Use deterministic batch stdin/stdout only: no interaction, randomness, files, networking, or external libraries.
-Return only a JSON object with title, statement, inputFormat, outputFormat, constraints, and testCases.
-testCases must contain EXACTLY TWO objects, each with input, expectedOutput, and explanation strings.
-Each case is an independent complete program invocation. Specify exact output formatting, use feasible constraints for a 3-second execution limit, and keep each input/output below 65536 UTF-8 bytes.
-Manually work through BOTH examples and self-verify every expected output before responding. Explain the example result, but include no solution code or full algorithm solution.
-Use plain text in all strings. An empty input or expected output is allowed when appropriate.`;
-    const before = new TextEncoder().encode(baseline).length;
-    const after = new TextEncoder().encode(prompt).length;
-    expect(after).toBeLessThan(before);
-    expect(prompt).toMatch(/short/);
+    expect(prompt).toMatch(/topic and difficulty are hard requirements/);
+    expect(prompt).toMatch(/topic exactly as "Arrays" and difficulty exactly as "Easy"/);
+    expect(prompt).toMatch(/For Sorting, the core task must sort\/order\/arrange/);
+    expect(prompt).toMatch(/For Hard, include BOTH a meaningful boundary/);
+    expect(prompt).toMatch(/Dynamic programming means states\/subproblems\/transitions/);
     expect(prompt).toMatch(/EXACTLY TWO/);
     expect(prompt).toMatch(/self-verify/);
-    console.info(`Local prompt bytes (Easy/Arrays): baseline=${before}, concise=${after}, saved=${before - after}.`);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body)).generationConfig.responseSchema.required).toEqual(expect.arrayContaining(["topic", "difficulty"]));
   });
 });

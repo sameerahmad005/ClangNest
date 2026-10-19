@@ -72,6 +72,49 @@ it("marks a wrong answer failed and invalidates previous passes when code is edi
   expect(host.textContent).not.toContain("All visible examples passed");
 });
 
+it("shows the Examples terminal tab with both cases and keeps it available when the sidebar closes", async () => {
+  await mount(); await click("Generate question"); await click("Run 2 tests");
+  expect(host.querySelector<HTMLButtonElement>('.terminal-tabs button.active')?.textContent).toBe("Examples");
+  expect(host.textContent).toContain("5 9");
+  expect(host.textContent).toContain("14");
+  expect(host.textContent).toContain("20 22");
+  expect(host.textContent).toContain("42");
+  expect(host.querySelectorAll(".terminal-example")).toHaveLength(2);
+  await click("Toggle practice panel");
+  expect(host.querySelector(".practice-sidebar.closed")).toBeTruthy();
+  expect(host.querySelector(".terminal-tabs")?.textContent).toContain("Examples");
+});
+
+it("lets the terminal Examples tab select an input and ordinary Run does not score", async () => {
+  await mount(); await click("Generate question");
+  await click("Examples");
+  const useInput = host.querySelector<HTMLButtonElement>(".terminal-use-case")!;
+  await act(async () => useInput.click());
+  expect(host.querySelector<HTMLTextAreaElement>('[aria-label="Program input"]')?.value).toBe("5 9\n");
+  await click("RunCtrl ↵");
+  expect(host.textContent).toContain("Total points0");
+});
+
+it("clears stale example results when the terminal selects a different input", async () => {
+  await mount(); await click("Generate question"); await click("Run 2 tests");
+  expect(host.querySelectorAll(".practice-passed").length).toBeGreaterThanOrEqual(2);
+  const useInputs = [...host.querySelectorAll<HTMLButtonElement>(".terminal-use-case")];
+  expect(useInputs).toHaveLength(2);
+  await act(async () => useInputs[1].click());
+  expect(host.querySelectorAll(".practice-passed")).toHaveLength(0);
+  expect(host.textContent).not.toContain("All visible examples passed");
+});
+
+it("confirms and resets the local scoreboard after a completed Run 2 tests", async () => {
+  await mount(); await click("Generate question"); await click("Run 2 tests");
+  expect(host.querySelector(".practice-score-grid")?.textContent).toContain("2Total points");
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  await click("Reset scoreboard");
+  expect(confirm).toHaveBeenCalledWith("Reset the local practice scoreboard? This cannot be undone.");
+  expect(host.querySelector(".practice-score-grid")?.textContent).toContain("0Total points");
+  confirm.mockRestore();
+});
+
 it("cancels question generation and leaves the existing source intact", async () => {
   await mount();
   vi.mocked(generateProblem).mockImplementation((_settings, _topic, _difficulty, signal) => new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(new Error("Problem generation was cancelled.")), { once: true })));
@@ -324,7 +367,7 @@ it("preserves both duplicate-main and exception guidance when both compiler erro
   expect(errors.split(compileOutput)).toHaveLength(2);
 });
 
-it("shows C++23 consistently with qualified support and persistent editor help", async () => {
+it("shows C++23 consistently with qualified support and removes the persistent editor hint", async () => {
   await mount();
   expect(host.querySelector('.brand-sub')!.textContent).toBe("C++23 practice");
   expect(host.querySelector('.standard-chip')!.textContent).toBe("C++23");
@@ -332,7 +375,7 @@ it("shows C++23 consistently with qualified support and persistent editor help",
   expect(host.querySelector('.standard-chip')!.getAttribute("title")).toContain("compiler and standard-library support is partial");
   expect(host.querySelector('.standard-chip svg')).toBeNull();
   expect(host.querySelector('.statusbar')!.textContent).toContain("Clang / WASI · C++23");
-  expect(host.textContent).toContain("Paste a complete program by replacing the starter code; keep one main()");
+  expect(host.textContent).not.toContain("Paste a complete program by replacing the starter code; keep one main(). Browser WASM is slower than a native IDE, but the editor stays usable while a run is in progress.");
 });
 
 function successfulRun(durationMs: number): CppRunnerResult {
@@ -344,7 +387,6 @@ it("explains first-run compiler initialization and keeps the measured total visi
   vi.mocked(runCpp).mockImplementation(() => new Promise<CppRunnerResult>(resolve => pending.push(resolve)));
   await mount(); await click("RunCtrl ↵");
   expect(host.querySelector('.statusbar')!.textContent).toContain("Initializing compiler assets…");
-  expect(host.textContent).toContain("Browser WASM is slower than a native IDE");
   await act(async () => pending.shift()!(successfulRun(321)));
   expect(host.textContent).toContain("First run initializes compiler assets in browser WASM");
   expect(host.textContent).toContain("Later unchanged runs can use the cached module");

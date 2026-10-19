@@ -59,3 +59,18 @@ export interface PracticeCaseResult {
   result: CppRunnerResult;
   passed: boolean;
 }
+
+export interface PracticeScoreEntry {
+  topic: DsaTopic;
+  difficulty: Difficulty;
+  points: number;
+  attempts: number;
+  passedCases: number;
+  totalCases: number;
+  recordedRuns: string[];
+}
+
+export interface PracticeScoreboard {
+  version: 1;
+  entries: Record<string, PracticeScoreEntry>;
+}

@@ -95,6 +95,8 @@ Categories use OpenRouter's reported base pricing, never a `:free` suffix or a b
 
 ## Public deployment security and privacy
 
+**Developer:** Sameer Ahmad — [LinkedIn](https://www.linkedin.com/in/sameer-abrar/) · [GitHub](https://github.com/sameerahmad005/ClangNest)
+
 **Security and privacy notes from developer Sameer Ahmad:**
 
 - The default compiler is browser-only: C++ source and stdin stay local to the browser's WebAssembly/WASI runner. The app has no backend native runner currently.

@@ -11,10 +11,35 @@ const TIMEOUT_MS = 45_000;
 const encoder = new TextEncoder();
 const MALFORMED = "The provider returned an invalid problem. Try generating again or choose another model.";
 
+const topicRequirements: Record<DsaTopic, RegExp[]> = {
+  Arrays: [/\b(array|arrays|sequence|sequences)\b/],
+  Strings: [/\b(string|strings)\b/, /\b(substring|subsequence|prefix|suffix|anagram|palindrome|character|characters|text|word|words)\b/],
+  Searching: [/\b(target|search|searching|find|finding|binary search|lookup|not found)\b/, /\b(array|sorted|index|position|binary|lookup|target)\b/],
+  Sorting: [/\b(sort|sorting|sorted|order|ordered|ordering|permutation|arrange|arrangement|comparator|inversion|merge sort|quick sort|heap sort)\b|\bcompare\b/],
+  "Linked lists": [/\blinked list|linked lists\b|\bnode\b[\s\S]{0,80}\bnext\b/],
+  "Stacks and queues": [/\b(stack|stacks|queue|queues|lifo|fifo|push|pop|enqueue|dequeue)\b/],
+  Hashing: [/\b(hash|hashing|hash table|key|keys|frequency|frequencies|map|maps|set|sets|count occurrences)\b/],
+  Recursion: [/\b(recursion|recursive|base case|call stack)\b/],
+  Trees: [/\b(tree|trees)\b/, /\b(node|nodes|children|child|traversal|subtree|ancestor|leaf|leaves)\b/],
+  Graphs: [/\b(graph|graphs|vertex|vertices|edge|edges|adjacency|bfs|dfs|path|paths)\b/],
+  Greedy: [/\b(greedy|local optimum|optimal choice|locally optimal)\b/],
+  "Dynamic programming": [/\b(dynamic programming|subproblem|subproblems|transition|transitions|memoization|memoized|tabulation)\b/, /\b(state|states|subproblem|subproblems|transition|transitions)\b/],
+};
+
+const topicConflicts: Partial<Record<DsaTopic, RegExp[]>> = {
+  // An adjacency list is a graph representation, not evidence that the requested task is an array problem.
+  Arrays: [/\b(graph|graphs|vertex|vertices|edge|edges|adjacency|bfs|dfs)\b/],
+};
+
+const hardBoundary = /\b(edge case|boundary|duplicate|duplicates|already sorted|reverse sorted|negative|equal values|no path|not found|disconnected|cycle|overflow|case sensitive|case insensitive|multiple optimal|tie|in place|without sorting)\b/;
+const hardComplexity = /\b(worst case|time complexity|space complexity|complexity|linear|quadratic|logarithmic|constant time|o\s*\(|o\s+(?:1|n|log|v|e)\b|time limit|memory limit)\b/;
+
 const problemSchema = {
   type: "OBJECT",
   properties: {
     title: { type: "STRING" },
+    topic: { type: "STRING", enum: [...DSA_TOPICS] },
+    difficulty: { type: "STRING", enum: [...DIFFICULTIES] },
     statement: { type: "STRING" },
     inputFormat: { type: "STRING" },
     outputFormat: { type: "STRING" },
@@ -28,13 +53,17 @@ const problemSchema = {
       },
     },
   },
-  required: ["title", "statement", "inputFormat", "outputFormat", "constraints", "testCases"],
+  required: ["title", "topic", "difficulty", "statement", "inputFormat", "outputFormat", "constraints", "testCases"],
 };
 
 function promptFor(topic: DsaTopic, difficulty: Difficulty): string {
   return `Create an original ${difficulty} ${topic} problem for ${CPP_STANDARD}. Keep prose and examples short.
 Use deterministic batch stdin/stdout; no interaction, randomness, files, network or external libraries.
-Return only a JSON object with plain-text strings: title, statement, inputFormat, outputFormat, constraints; and testCases: EXACTLY TWO objects with input, expectedOutput, explanation strings.
+The requested topic and difficulty are hard requirements. Return topic exactly as "${topic}" and difficulty exactly as "${difficulty}"; do not substitute a related topic or difficulty.
+Title, statement, inputFormat, outputFormat, constraints, and both example explanations must describe the requested topic and the actual core operation. For Sorting, the core task must sort/order/arrange a permutation or otherwise use sorting semantics; do not return a generic array indexing or sum question merely because it contains an array.
+Use these topic signals conservatively: Arrays means array/list/sequence semantics; Strings means substring/prefix/suffix/anagram or character/string semantics; Searching means target/search/find/index/binary-search semantics; Linked lists means nodes/links/pointers; Stacks and queues means LIFO/FIFO and stack/queue operations; Hashing means keys/frequency/map/set/hash; Recursion means recursive structure or a base case; Trees means nodes/children/tree traversal; Graphs means vertices/edges/traversal/path; Greedy means choices and a locally optimal strategy; Dynamic programming means states/subproblems/transitions or memoization.
+For Hard, include BOTH a meaningful boundary or edge case and a concrete algorithmic complexity or space requirement in the statement or constraints; generic wording such as "at least one element" or increasing N alone is not enough.
+Return only a JSON object with plain-text strings: title, topic, difficulty, statement, inputFormat, outputFormat, constraints; and testCases: EXACTLY TWO objects with input, expectedOutput, explanation strings.
 Each example is a complete independent run. Specify exact stdout formatting and feasible constraints for 3 seconds. Each input/output must be below 65536 UTF-8 bytes; empty is allowed.
 Work through BOTH examples and self-verify their outputs. Explain each result briefly; no solution code or algorithm solution.`;
 }
@@ -51,6 +80,33 @@ function field(value: unknown, maxBytes: number, allowEmpty = false): string {
   return value;
 }
 
+function plain(value: string): string {
+  return value.normalize("NFKC").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function validateContract(data: Record<string, unknown>, topic: DsaTopic, difficulty: Difficulty, testCases: [PracticeCase, PracticeCase]): void {
+  if (data.topic !== topic || data.difficulty !== difficulty) throw new ProviderError(MALFORMED);
+
+  field(data.title, 240);
+  const statement = plain(field(data.statement, 16000));
+  const inputFormat = plain(field(data.inputFormat, 4000));
+  const outputFormat = plain(field(data.outputFormat, 4000));
+  const constraints = plain(field(data.constraints, 4000));
+  const explanations = testCases.map(test => plain(test.explanation)).join(" ");
+  const body = [statement, inputFormat, outputFormat, constraints, explanations].join(" ");
+
+  if (!topicRequirements[topic].every(pattern => pattern.test(body))) throw new ProviderError(MALFORMED);
+  if (topicConflicts[topic]?.some(pattern => pattern.test(body))) throw new ProviderError(MALFORMED);
+  if (topic === "Sorting") {
+    const sortingSemantics = /\b(sort|sorting|sorted|order|ordered|ordering|permutation|arrange|arrangement|comparator|inversion|merge sort|quick sort|heap sort)\b/.test(body)
+      || /\b(compare|comparing)\b(?:\s+\w+){0,8}\s+(elements?|values?|items?|pairs?|positions?|order|swap)\b/.test(body);
+    const genericArrayOperation = /\b(index|indices|sum|add|total|average)\b/.test(body)
+      && !/\b(sort|sorting|sorted|order|ordered|ordering|permutation|arrange|arrangement|comparator|inversion|merge sort|quick sort|heap sort)\b/.test(body);
+    if (!sortingSemantics || genericArrayOperation) throw new ProviderError(MALFORMED);
+  }
+  if (difficulty === "Hard" && (!hardBoundary.test(`${statement} ${constraints}`) || !hardComplexity.test(`${statement} ${constraints}`))) throw new ProviderError(MALFORMED);
+}
+
 function parseProblem(text: string, topic: DsaTopic, difficulty: Difficulty): PracticeProblem {
   const fenced = text.trim().match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
   let parsed: unknown;
@@ -65,6 +121,7 @@ function parseProblem(text: string, topic: DsaTopic, difficulty: Difficulty): Pr
       explanation: field(test.explanation, 4000),
     };
   }) as [PracticeCase, PracticeCase];
+  validateContract(data, topic, difficulty, testCases);
   return {
     title: field(data.title, 240), topic, difficulty,
     statement: field(data.statement, 16000),
