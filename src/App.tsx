@@ -70,6 +70,21 @@ function resultText(result: CppRunnerResult | null, tab: PanelTab) {
 }
 
 type PanelTab = "input" | "output" | "errors";
+type RunPhase = "initializing" | "compiling" | "cached";
+
+function runPhaseLabel(phase: RunPhase | null) {
+  if (phase === "initializing") return "Initializing compiler assets…";
+  if (phase === "compiling") return "Compiling C++…";
+  if (phase === "cached") return "Using cached module…";
+  return "Running";
+}
+
+function runNotice(phase: RunPhase, durationMs: number) {
+  const total = `${Math.round(durationMs)} ms total`;
+  if (phase === "initializing") return `First run initializes compiler assets in browser WASM; ${total}. Later unchanged runs can use the cached module. Browser WASM is slower than a native IDE.`;
+  if (phase === "cached") return `Unchanged source used the cached module for fast execution; ${total}. Browser WASM is slower than a native IDE.`;
+  return `Changed source compiled and ran in browser WASM; ${total}. Browser WASM is slower than a native IDE.`;
+}
 
 export function App() {
   const [projects, setProjects] = useState<CppProject[]>([]);
@@ -107,6 +122,9 @@ export function App() {
   const editVersion = useRef(0);
   const projectRequest = useRef(0);
   const mounted = useRef(false);
+  const compilerInitialized = useRef(false);
+  const lastCompiledSource = useRef<string | null>(null);
+  const [runPhase, setRunPhase] = useState<RunPhase | null>(null);
 
   const refreshProjects = useCallback(async () => {
     const saved = await getStorage().list();
@@ -280,22 +298,27 @@ export function App() {
     if (controller.current || generationController.current || settingsOpen) return;
     const epoch = evaluationEpoch.current;
     const abort = new AbortController(); controller.current = abort;
+    const phase: RunPhase = compilerInitialized.current && lastCompiledSource.current === source
+      ? "cached"
+      : compilerInitialized.current ? "compiling" : "initializing";
     setTesting(false); setTestResults([]);
-    setRunning(true); setResult(null); setTab("output"); setNotice("Starting compiler…");
+    setRunning(true); setRunPhase(phase); setResult(null); setTab("output"); setNotice("");
     try {
       const next = await runCpp({ source, stdin, signal: abort.signal });
       if (controller.current !== abort || evaluationEpoch.current !== epoch) return;
       setResult(next); setTab(next.status === "compile-error" || next.status === "runtime-error" ? "errors" : "output");
       const test = selectedCase !== null ? problem?.testCases[selectedCase] : undefined;
       if (test && test.input === stdin) setTestResults([evaluateCase(selectedCase!, test, next)]);
+      if (next.status === "success" || next.status === "compile-error") compilerInitialized.current = true;
+      if (next.status === "success") lastCompiledSource.current = source;
+      setNotice(runNotice(phase, next.durationMs));
     } catch (error) {
       if (controller.current !== abort || evaluationEpoch.current !== epoch) return;
       setResult({ status: "runtime-error", stdout: "", stderr: error instanceof Error ? error.message : String(error), compileOutput: "", diagnostics: [], exitCode: null, durationMs: 0, outputTruncated: false });
       setTab("errors");
     } finally {
       if (controller.current === abort) {
-        setRunning(false); controller.current = null;
-        setNotice((current) => current === "Starting compiler…" ? "" : current);
+        setRunning(false); setRunPhase(null); controller.current = null;
       }
     }
   };
@@ -340,7 +363,8 @@ export function App() {
   });
 
   const status = result?.status ?? "ready";
-  const statusLabel = running ? (testing ? "Checking examples" : "Running") : status === "success" ? "Finished" : status === "ready" ? "Ready" : status.replace("-", " ");
+  const statusLabel = running ? (testing ? "Checking examples" : runPhaseLabel(runPhase)) : status === "success" ? "Finished" : status === "ready" ? "Ready" : status.replace("-", " ");
+  const footerStatus = storageError || (running ? runPhaseLabel(runPhase) : notice || statusLabel);
   const output = useMemo(() => resultText(result, tab), [result, tab]);
 
   return <div className="app-shell">
@@ -378,13 +402,13 @@ export function App() {
           <div className="file-title"><FileCode2 size={17} /><strong>{project?.name ?? "main.cpp"}</strong>{dirty && <span className="dirty-dot" title="Unsaved changes" />}</div>
           <div className="editor-actions"><span className="standard-chip" title={`${CPP_STANDARD} no-exceptions mode; compiler and standard-library support is partial. Some ${CPP_STANDARD} APIs may be unavailable.`}>{CPP_STANDARD}</span><button className="text-btn" onClick={reset}><RotateCcw size={14} /> Reset</button><button className="text-btn" onClick={() => void saveNow()}><Save size={14} /> Save</button><button className="run-btn" disabled={generating && !running} onClick={() => running ? controller.current?.abort() : void run()}>{running ? <X size={16} /> : <Play size={16} fill="currentColor" />} {running ? "Stop" : "Run"}<kbd>Ctrl ↵</kbd></button></div>
         </div>
-        <p className="practice-hint">Paste a complete program by replacing the starter code; keep one main()</p>
+        <p className="practice-hint">Paste a complete program by replacing the starter code; keep one main(). Browser WASM is slower than a native IDE, but the editor stays usable while a run is in progress.</p>
         <div className="editor-wrap"><Editor height="100%" language="cpp" theme={dark ? "vs-dark" : "light"} value={source} onChange={(value) => { invalidateEvaluation(); editVersion.current++; setSource(value ?? ""); setDirty(true); }} options={{ fontSize, minimap: { enabled: false }, automaticLayout: true, padding: { top: 18, bottom: 18 }, scrollBeyondLastLine: false, smoothScrolling: true, tabSize: 4, wordWrap: "on", suggestOnTriggerCharacters: true }} /></div>
         <div className={`terminal ${terminalOpen ? "expanded" : "collapsed"}`}>
           <div className="terminal-head"><button className="terminal-toggle" onClick={() => setTerminalOpen((value) => !value)}><PanelBottom size={15} /> TERMINAL {terminalOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</button>{terminalOpen && <div className="terminal-meta"><span className={`run-state ${status}`}>{running && <span className="spinner" />}{statusLabel}</span>{result?.durationMs ? <span title="Total elapsed time, including compilation on a cache miss">{Math.round(result.durationMs)} ms total</span> : null}<button className="copy-btn" onClick={() => void navigator.clipboard?.writeText(resultText(result, "output"))} title="Copy output"><Copy size={14} /> Copy</button></div>}</div>
           {terminalOpen && <div className="terminal-body"><div className="terminal-tabs">{(["input", "output", "errors"] as PanelTab[]).map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "input" ? "Input" : item === "output" ? "Output" : `Errors${result?.diagnostics.length ? ` (${result.diagnostics.length})` : ""}`}</button>)}</div><div className="terminal-content">{tab === "input" ? <textarea aria-label="Program input" value={stdin} onChange={(event) => { invalidateEvaluation(); setSelectedCase(null); editVersion.current++; setStdin(event.target.value); setDirty(true); }} placeholder="Enter stdin here..." spellCheck={false} /> : <pre className={tab === "errors" ? "error-text" : ""}>{output}</pre>}</div></div>}
         </div>
-        <footer className="statusbar"><span role={storageError ? "alert" : "status"}><span className={`status-led ${running ? "busy" : ""}`} />{storageError || notice || statusLabel}</span><span>Clang / WASI · {CPP_STANDARD}</span><span className="font-control">Font <button onClick={() => setFontSize((value) => Math.max(12, value - 1))}>−</button><strong>{fontSize}</strong><button onClick={() => setFontSize((value) => Math.min(22, value + 1))}>+</button></span></footer>
+         <footer className="statusbar"><span role={storageError ? "alert" : "status"}><span className={`status-led ${running ? "busy" : ""}`} />{footerStatus}</span><span>Clang / WASI · {CPP_STANDARD}</span><span className="font-control">Font <button onClick={() => setFontSize((value) => Math.max(12, value - 1))}>−</button><strong>{fontSize}</strong><button onClick={() => setFontSize((value) => Math.min(22, value + 1))}>+</button></span></footer>
       </main>
     </div>
     {settingsOpen && <AiSettingsDialog settings={aiSettings} onSave={saveProviderSettings} onClose={() => setSettingsOpen(false)} />}

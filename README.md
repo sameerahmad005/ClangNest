@@ -93,6 +93,20 @@ Categories use OpenRouter's reported base pricing, never a `:free` suffix or a b
 - Gemini uses `x-goog-api-key`; Anthropic uses `x-api-key`, the API version, and its explicit direct-browser-access header; OpenAI-compatible providers use `Authorization: Bearer`. These are personal-key browser requests, not a secure way to share an organization's secret key. A provider may block browser access via CORS or reject a model, and free quota availability is not guaranteed. The UI reports authentication/quota/network/malformed-response failures without falling back to fake questions or fake model lists.
 - Rotate any key shared in chat or another public location. Use separate, limited-quota personal credentials. A public shared key requires a separately secured server design and must never be embedded in this app.
 
+## Public deployment security and privacy
+
+**Security and privacy notes from developer Sameer Ahmad:**
+
+- The default compiler is browser-only: C++ source and stdin stay local to the browser's WebAssembly/WASI runner. The app has no backend native runner currently.
+- User API keys are user-controlled browser secrets. A public frontend cannot make them theft-proof: keys are sent directly to the configured provider, and browser-origin scripts or extensions with access to the origin may be able to read them.
+- `sessionStorage` is the default key store. `localStorage` is used only when **Remember on this device** is explicitly selected. Neither store is encrypted against scripts running in the same origin.
+- The app never bundles a project or provider key, and it does not log source, project data, provider queries/prompts, provider responses, or referrers. Direct provider requests still require users to trust the configured HTTPS endpoint and provider.
+- The deployment Content Security Policy is defense-in-depth, not a guarantee. Use restricted, rotatable, limited-quota keys, and do not use an organization-wide secret in a public frontend.
+- A remote native runner would require a separate authenticated sandbox with its own isolation and resource controls; it is not part of this deployment.
+- C++ compile times are limited by WebAssembly and browser resources. A warm worker/cache makes repeated runs faster, but it does not guarantee a fixed time or promise a 15-second fix for changed-source compilation.
+
+For public responsible-disclosure reports, use the repository's [Issues page](https://github.com/sameerahmad005/ClangNest/issues). Do not post API keys or other secrets in an issue.
+
 Useful checks:
 
 ```bash

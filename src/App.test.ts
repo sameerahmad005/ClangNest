@@ -334,3 +334,42 @@ it("shows C++23 consistently with qualified support and persistent editor help",
   expect(host.querySelector('.statusbar')!.textContent).toContain("Clang / WASI · C++23");
   expect(host.textContent).toContain("Paste a complete program by replacing the starter code; keep one main()");
 });
+
+function successfulRun(durationMs: number): CppRunnerResult {
+  return { status: "success", stdout: "", stderr: "", compileOutput: "", diagnostics: [], exitCode: 0, durationMs, outputTruncated: false };
+}
+
+it("explains first-run compiler initialization and keeps the measured total visible", async () => {
+  const pending: ((result: CppRunnerResult) => void)[] = [];
+  vi.mocked(runCpp).mockImplementation(() => new Promise<CppRunnerResult>(resolve => pending.push(resolve)));
+  await mount(); await click("RunCtrl ↵");
+  expect(host.querySelector('.statusbar')!.textContent).toContain("Initializing compiler assets…");
+  expect(host.textContent).toContain("Browser WASM is slower than a native IDE");
+  await act(async () => pending.shift()!(successfulRun(321)));
+  expect(host.textContent).toContain("First run initializes compiler assets in browser WASM");
+  expect(host.textContent).toContain("Later unchanged runs can use the cached module");
+  expect(host.textContent).toContain("321 ms total");
+  expect(host.querySelector('.terminal-meta')!.textContent).toContain("321 ms total");
+});
+
+it("reports cached unchanged runs and compilation for changed source", async () => {
+  const pending: ((result: CppRunnerResult) => void)[] = [];
+  vi.mocked(runCpp).mockImplementation(() => new Promise<CppRunnerResult>(resolve => pending.push(resolve)));
+  await mount();
+
+  await click("RunCtrl ↵");
+  await act(async () => pending.shift()!(successfulRun(11)));
+  await click("RunCtrl ↵");
+  expect(host.querySelector('.statusbar')!.textContent).toContain("Using cached module…");
+  await act(async () => pending.shift()!(successfulRun(8)));
+  expect(host.textContent).toContain("Unchanged source used the cached module for fast execution");
+  expect(host.textContent).toContain("8 ms total");
+
+  const editor = host.querySelector<HTMLTextAreaElement>('.editor-wrap textarea')!;
+  await act(async () => { editor.value = "int main() { return 1; }"; Simulate.change(editor); });
+  await click("RunCtrl ↵");
+  expect(host.querySelector('.statusbar')!.textContent).toContain("Compiling C++…");
+  await act(async () => pending.shift()!(successfulRun(47)));
+  expect(host.textContent).toContain("Changed source compiled and ran in browser WASM");
+  expect(host.textContent).toContain("47 ms total");
+});
