@@ -1,0 +1,101 @@
+.practice-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
+  background: #0d1526;
+  color: #d9e2f1;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.practice-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px 14px; border-bottom: 1px solid #21304a; }
+.practice-eyebrow, .ai-eyebrow { color: #99a7c1; font-size: 9px; font-weight: 700; letter-spacing: 1.4px; }
+.practice-header h2, .ai-dialog-header h2 { margin: 2px 0 0; color: #f0f4ff; font-size: 18px; letter-spacing: -.4px; line-height: 1.4; }
+.practice-link { padding: 4px 0; border: 0; background: transparent; color: #aeb8ff; font: inherit; font-size: 11px; text-align: right; cursor: pointer; }
+.practice-link:hover { color: #d0d6ff; text-decoration: underline; }
+.practice-controls { padding: 14px 16px; border-bottom: 1px solid #21304a; }
+.practice-selects { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; }
+.practice-field, .ai-field { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: #bdc9df; font-size: 11px; font-weight: 600; }
+.practice-field select, .ai-field input, .ai-field select { width: 100%; min-width: 0; min-height: 37px; padding: 8px 10px; border: 1px solid #32415c; border-radius: 7px; background: #0a1120; color: #e3eafa; font: inherit; font-size: 12px; color-scheme: dark; }
+.practice-actions { display: flex; gap: 8px; margin-top: 12px; }
+.practice-actions .practice-primary { flex: 1; }
+.practice-button, .ai-button { min-height: 36px; padding: 8px 12px; border: 1px solid #34425e; border-radius: 7px; background: #17243a; color: #dfe7fa; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; line-height: 1.4; }
+.practice-button:hover, .ai-button:hover { border-color: #687999; background: #20314c; }
+.practice-primary, .ai-primary { border-color: #7684f5; background: #6573df; color: #fff; }
+.practice-primary:hover, .ai-primary:hover { border-color: #a3adff; background: #7785f2; }
+.practice-button:disabled, .ai-button:disabled, .practice-field select:disabled { cursor: not-allowed; opacity: .5; }
+.practice-panel :focus-visible, .ai-dialog :focus-visible { outline: 2px solid #a4b1ff; outline-offset: 3px; }
+.practice-hint, .practice-test-summary, .ai-help { margin: 9px 0 0; color: #a3b0c7; font-size: 11px; line-height: 1.6; }
+.practice-stream-preview { margin-top: 10px; color: #a3b0c7; font-size: 11px; }
+.practice-stream-preview summary { cursor: pointer; }
+.practice-stream-preview .practice-code { max-height: 140px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.practice-content { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #34425e transparent; }
+.practice-empty { padding: 34px 20px; color: #a3b0c7; text-align: center; }
+.practice-empty-mark { display: inline-grid; width: 45px; height: 45px; place-items: center; border: 1px solid #354374; border-radius: 12px; background: #1a2445; color: #b5bfff; font: 700 20px ui-monospace, monospace; }
+.practice-empty h3 { margin: 18px 0 6px; color: #dce5f8; font-size: 14px; }
+.practice-empty p { margin: 0; }
+.practice-problem { padding: 18px 16px; }
+.practice-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.practice-tag, .practice-count { padding: 2px 7px; border: 1px solid #34425d; border-radius: 5px; color: #bbc8e3; font-size: 10px; }
+.practice-problem h3 { margin: 12px 0; color: #f0f4ff; font-size: 19px; line-height: 1.45; }
+.practice-problem h4 { margin: 17px 0 5px; color: #d5dff1; font-size: 12px; }
+.practice-prose { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.practice-notice, .practice-warning, .ai-warning { margin: 10px 0; padding: 9px 10px; border: 1px solid #625035; border-radius: 6px; background: #2b251b; color: #e1c695; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.practice-error, .ai-error { margin: 12px 0 0; padding: 10px; border: 1px solid #80444c; border-radius: 7px; background: #331d2a; color: #ffb4bd; white-space: pre-wrap; overflow-wrap: anywhere; }
+.practice-examples { padding: 0 16px 18px; }
+.practice-section-heading, .practice-case-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.practice-section-heading { justify-content: space-between; }
+.practice-section-heading h3 { margin: 0; color: #e2e9f7; font-size: 13px; }
+.practice-case { min-width: 0; margin-top: 14px; padding: 12px; border: 1px solid #2c3c56; border-radius: 9px; background: #101a2d; }
+.practice-case-selected { border-color: #8795f7; box-shadow: inset 3px 0 #8795f7; }
+.practice-case-heading { margin-bottom: 12px; }
+.practice-case-heading h4 { margin: 0; font-size: 12px; }
+.practice-small { min-height: 32px; margin-left: auto; padding: 5px 9px; font-size: 11px; }
+.practice-selected-label { color: #bdc6ff; font-size: 10px; }
+.practice-code-label { display: block; margin-top: 9px; color: #a7b6d1; font-size: 10px; font-weight: 600; letter-spacing: .2px; }
+.practice-code { max-width: 100%; max-height: 220px; margin: 5px 0 10px; padding: 10px; overflow: auto; border: 1px solid #25344e; border-radius: 6px; background: #080f1c; color: #d7e6ff; white-space: pre; tab-size: 4; font: 11px/1.7 ui-monospace, SFMono-Regular, Consolas, monospace; scrollbar-width: thin; scrollbar-color: #34425e transparent; }
+.practice-explanation { color: #b2bfd6; font-size: 11px; }
+.practice-explanation strong { display: block; margin-bottom: 4px; color: #d3def0; font-weight: 600; }
+.practice-result { margin-top: 13px; padding-top: 10px; border-top: 1px solid #2c3c56; }
+.practice-result-status { margin: 0 0 10px; font-size: 11px; font-weight: 600; overflow-wrap: anywhere; }
+.practice-passed { color: #83e1b5; }
+.practice-failed, .practice-diagnostic { color: #ffb4bd; }
+.practice-footer { padding: 13px 16px; border-top: 1px solid #293954; background: #101a2d; }
+.practice-footer .practice-button { width: 100%; }
+.practice-test-summary { min-height: 34px; }
+.practice-test-summary strong, .practice-test-summary span { display: block; }
+.practice-header, .practice-problem h3, .practice-case-heading, .practice-footer { overflow-wrap: anywhere; }
+.ai-dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; background: #030712ba; backdrop-filter: blur(5px); }
+.ai-dialog { width: min(100%, 510px); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #344460; border-radius: 14px; background: #101a2d; color: #d9e2f1; box-shadow: 0 24px 90px #0009; font-size: 12px; line-height: 1.6; scrollbar-width: thin; scrollbar-color: #34425e transparent; }
+.ai-dialog-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-bottom: 1px solid #2c3c56; }
+.ai-close { flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: 7px; background: transparent; color: #b4c0d8; font: 24px/1 sans-serif; cursor: pointer; }
+.ai-close:hover { background: #23314b; color: #fff; }
+.ai-form { display: flex; flex-direction: column; gap: 13px; padding: 18px 22px 20px; min-width: 0; }
+.ai-description { margin: 0; color: #b1bed6; }
+.ai-help { margin: -7px 0 0; overflow-wrap: anywhere; }
+.ai-key-links { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+.ai-key-links .ai-help { flex-basis: 100%; margin: 0; }
+.ai-key-links a { color: #aeb8ff; font-size: 11px; text-underline-offset: 3px; }
+.ai-key-links a:hover { color: #d0d6ff; }
+.ai-checkbox { display: flex; align-items: center; gap: 9px; color: #e1e8f7; font-size: 12px; cursor: pointer; }
+.ai-checkbox input { width: 16px; height: 16px; margin: 0; accent-color: #8391ff; }
+.ai-warning { margin: -4px 0 0; }
+.ai-request-note { padding: 12px; border: 1px solid #34496d; border-radius: 7px; background: #14243c; color: #b6c8e6; font-size: 11px; overflow-wrap: anywhere; }
+.ai-request-note strong { color: #dae5fa; }
+.ai-request-note p { margin: 4px 0 0; }
+.ai-error { margin: 0; }
+.ai-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 5px; }
+@media (max-width: 480px) {
+  .practice-header { align-items: flex-start; }
+  .practice-header, .practice-controls, .practice-problem, .practice-footer { padding-left: 12px; padding-right: 12px; }
+  .practice-examples { padding-left: 12px; padding-right: 12px; }
+  .ai-dialog-backdrop { padding: 10px; }
+  .ai-dialog { max-height: calc(100dvh - 20px); border-radius: 10px; }
+  .ai-dialog-header, .ai-form { padding-left: 16px; padding-right: 16px; }
+}
+
+.ai-step { margin: 7px 0 0; color: #e3eafa; font-size: 13px; }
+.ai-model-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
