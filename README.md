@@ -101,6 +101,7 @@ Categories use OpenRouter's reported base pricing, never a `:free` suffix or a b
 - User API keys are user-controlled browser secrets. A public frontend cannot make them theft-proof: keys are sent directly to the configured provider, and browser-origin scripts or extensions with access to the origin may be able to read them.
 - `sessionStorage` is the default key store. `localStorage` is used only when **Remember on this device** is explicitly selected. Neither store is encrypted against scripts running in the same origin.
 - The app never bundles a project or provider key, and it does not log source, project data, provider queries/prompts, provider responses, or referrers. Direct provider requests still require users to trust the configured HTTPS endpoint and provider.
+- Monaco is bundled from the project dependencies with local worker files; the public deployment does not need to execute Monaco's CDN `loader.js`.
 - The deployment Content Security Policy is defense-in-depth, not a guarantee. Use restricted, rotatable, limited-quota keys, and do not use an organization-wide secret in a public frontend.
 - A remote native runner would require a separate authenticated sandbox with its own isolation and resource controls; it is not part of this deployment.
 - C++ compile times are limited by WebAssembly and browser resources. A warm worker/cache makes repeated runs faster, but it does not guarantee a fixed time or promise a 15-second fix for changed-source compilation.
