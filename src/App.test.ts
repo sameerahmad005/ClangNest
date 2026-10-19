@@ -59,6 +59,8 @@ it("generates a left-hand problem without replacing code, fills stdin, and passe
   expect(vi.mocked(runCpp).mock.calls.map(([request]) => [request.source, request.stdin])).toEqual([["MY EXISTING SOLUTION", "5 9\n"], ["MY EXISTING SOLUTION", "20 22\n"]]);
   expect(host.textContent).toContain("All visible examples passed");
   expect(host.querySelectorAll(".practice-passed").length).toBeGreaterThanOrEqual(2);
+  expect(host.querySelector(".run-toast.success")?.textContent).toContain("Tests successful!");
+  expect(host.querySelectorAll(".run-toast-sparks span")).toHaveLength(4);
 });
 
 it("marks a wrong answer failed and invalidates previous passes when code is edited", async () => {
@@ -70,6 +72,7 @@ it("marks a wrong answer failed and invalidates previous passes when code is edi
   await click("Run 2 tests");
   expect(host.querySelectorAll(".practice-failed")).toHaveLength(2);
   expect(host.textContent).not.toContain("All visible examples passed");
+  expect(host.querySelector(".run-toast.failure")?.textContent).toContain("Test failed");
 });
 
 it("shows the Examples terminal tab with both cases and keeps it available when the sidebar closes", async () => {
@@ -92,7 +95,9 @@ it("lets the terminal Examples tab select an input and ordinary Run does not sco
   await act(async () => useInput.click());
   expect(host.querySelector<HTMLTextAreaElement>('[aria-label="Program input"]')?.value).toBe("5 9\n");
   await click("RunCtrl ↵");
-  expect(host.textContent).toContain("Total points0");
+  await click("Scoreboard");
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("0Total points");
+  expect(host.querySelector(".run-toast.success")?.textContent).toContain("Test successful!");
 });
 
 it("clears stale example results when the terminal selects a different input", async () => {
@@ -107,12 +112,20 @@ it("clears stale example results when the terminal selects a different input", a
 
 it("confirms and resets the local scoreboard after a completed Run 2 tests", async () => {
   await mount(); await click("Generate question"); await click("Run 2 tests");
-  expect(host.querySelector(".practice-score-grid")?.textContent).toContain("2Total points");
+  await click("Scoreboard");
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("2Total points");
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-  await click("Reset scoreboard");
+  await click("Reset");
   expect(confirm).toHaveBeenCalledWith("Reset the local practice scoreboard? This cannot be undone.");
-  expect(host.querySelector(".practice-score-grid")?.textContent).toContain("0Total points");
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("0Total points");
   confirm.mockRestore();
+});
+
+it("opens the dedicated scoreboard page with tracked categories", async () => {
+  await mount(); await click("Generate question"); await click("Run 2 tests"); await click("Scoreboard");
+  expect(host.querySelector("#scoreboard-title")?.textContent).toBe("Scoreboard");
+  expect(host.querySelectorAll(".scoreboard-entry")).toHaveLength(1);
+  expect(host.querySelector(".scoreboard-entry")?.textContent).toContain("Arrays");
 });
 
 it("cancels question generation and leaves the existing source intact", async () => {

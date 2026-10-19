@@ -99,20 +99,3 @@
 
 .ai-step { margin: 7px 0 0; color: #e3eafa; font-size: 13px; }
 .ai-model-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.practice-scoreboard { padding: 13px 16px; border-bottom: 1px solid #21304a; background: #101a2d; }
-.practice-scoreboard-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.practice-scoreboard-heading h3 { margin: 3px 0 0; color: #e7edfc; font-size: 12px; font-weight: 600; }
-.practice-scoreboard-reset { padding: 4px 7px; border: 1px solid #405170; border-radius: 5px; background: transparent; color: #aeb8ff; font: inherit; font-size: 10px; cursor: pointer; }
-.practice-scoreboard-reset:hover { border-color: #8995ff; background: #1b2850; color: #e4e7ff; }
-.practice-score-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-top: 11px; }
-.practice-score-grid > div { min-width: 0; padding: 7px 6px; border: 1px solid #2b3b59; border-radius: 6px; background: #0d1526; }
-.practice-score-grid strong, .practice-score-grid span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.practice-score-grid strong { color: #f0f4ff; font-size: 15px; line-height: 1.2; }
-.practice-score-grid span, .practice-score-label { color: #91a0b8; font-size: 9px; }
-.practice-scoreboard-detail { margin-top: 8px; color: #aebbd2; font-size: 10px; }
-.practice-top-categories { margin-top: 10px; }
-.practice-score-label { display: block; margin-bottom: 4px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; }
-.practice-top-category { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: #bdc9df; font-size: 10px; }
-.practice-top-category strong { color: #83e1b5; font-size: 10px; }
-.practice-score-empty { color: #7f8da6; font-size: 10px; }
-@media (max-width: 480px) { .practice-scoreboard { padding-left: 12px; padding-right: 12px; } .practice-score-grid { gap: 4px; } .practice-score-grid > div { padding-left: 4px; padding-right: 4px; } }

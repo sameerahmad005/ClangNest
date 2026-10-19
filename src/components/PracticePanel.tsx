@@ -1,7 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { DIFFICULTIES, DSA_TOPICS } from "../types/practice";
-import type { AiGenerationProgress, Difficulty, DsaTopic, PracticeCaseResult, PracticeProblem, PracticeScoreEntry } from "../types/practice";
-import type { ScoreboardSummary } from "../lib/practice-scoreboard";
+import type { AiGenerationProgress, Difficulty, DsaTopic, PracticeCaseResult, PracticeProblem } from "../types/practice";
 import "./practice.css";
 
 export interface PracticePanelProps {
@@ -23,13 +22,9 @@ export interface PracticePanelProps {
   running: boolean;
   testResults: PracticeCaseResult[];
   selectedCase: number | null;
-  currentScore: PracticeScoreEntry;
-  scoreTotals: ScoreboardSummary;
-  topScoreEntries: PracticeScoreEntry[];
-  onResetScoreboard(): void;
 }
 
-export function PracticePanel({ topic, difficulty, onTopicChange, onDifficultyChange, problem, generating, generationProgress, generationDurationMs, generationStartedAt, error, onGenerate, onCancelGenerate, onOpenSettings, onUseCase, onRunTests, running, testResults, selectedCase, currentScore, scoreTotals, topScoreEntries, onResetScoreboard }: PracticePanelProps) {
+export function PracticePanel({ topic, difficulty, onTopicChange, onDifficultyChange, problem, generating, generationProgress, generationDurationMs, generationStartedAt, error, onGenerate, onCancelGenerate, onOpenSettings, onUseCase, onRunTests, running, testResults, selectedCase }: PracticePanelProps) {
   const id = useId();
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   useEffect(() => {
@@ -82,18 +77,6 @@ export function PracticePanel({ topic, difficulty, onTopicChange, onDifficultyCh
       {!generating && generationDurationMs != null && <p className="practice-hint">Generated in {(generationDurationMs / 1000).toFixed(1)} s · includes provider and network time.</p>}
       {error && <p className="practice-error" role="alert">{error}</p>}
     </div>
-
-    <section className="practice-scoreboard" aria-labelledby={`${id}-scoreboard`}>
-      <div className="practice-scoreboard-heading"><div><span className="practice-eyebrow">LOCAL SCOREBOARD</span><h3 id={`${id}-scoreboard`}>{topic} · {difficulty}</h3></div><button type="button" aria-label="Reset scoreboard" className="practice-scoreboard-reset" onClick={onResetScoreboard}>Reset</button></div>
-      <div className="practice-score-grid">
-        <div><strong>{currentScore.points}</strong><span>Current points</span></div>
-        <div><strong>{scoreTotals.points}</strong><span>Total points</span></div>
-        <div><strong>{scoreTotals.attempts}</strong><span>Attempts</span></div>
-        <div><strong>{Math.round(scoreTotals.passRate * 100)}%</strong><span>Pass rate</span></div>
-      </div>
-      <div className="practice-scoreboard-detail">Current category: {currentScore.points} pts across {currentScore.attempts} {currentScore.attempts === 1 ? "attempt" : "attempts"}</div>
-      <div className="practice-top-categories"><span className="practice-score-label">Top categories</span>{topScoreEntries.length ? topScoreEntries.map((entry) => <div className="practice-top-category" key={`${entry.topic}-${entry.difficulty}`}><span>{entry.topic} · {entry.difficulty}</span><strong>{entry.points} pts</strong></div>) : <span className="practice-score-empty">Complete Run 2 tests to start scoring.</span>}</div>
-    </section>
 
     <div className="practice-content">
       {!problem ? <div className="practice-empty"><span className="practice-empty-mark" aria-hidden="true">{ "{ }" }</span><h3>Your next challenge starts here</h3><p>Choose a topic and difficulty, set up your AI provider, and generate a question with two visible examples.</p></div> : <>

@@ -1,0 +1,26 @@
+.scoreboard-panel { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; overflow: hidden; background: #0d1526; color: #d9e2f1; font-size: 12px; line-height: 1.6; }
+.scoreboard-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 16px 14px; border-bottom: 1px solid #21304a; }
+.scoreboard-header h2 { margin: 2px 0 0; color: #f0f4ff; font-size: 18px; letter-spacing: -.4px; line-height: 1.4; }
+.scoreboard-reset { padding: 5px 8px; border: 1px solid #405170; border-radius: 6px; background: transparent; color: #aeb8ff; font: inherit; font-size: 10px; cursor: pointer; }
+.scoreboard-reset:hover { border-color: #8995ff; background: #1b2850; color: #e4e7ff; }
+.scoreboard-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 14px 16px; border-bottom: 1px solid #21304a; background: #101a2d; }
+.scoreboard-summary > div { min-width: 0; padding: 9px 8px; border: 1px solid #2b3b59; border-radius: 7px; background: #0d1526; }
+.scoreboard-summary strong, .scoreboard-summary span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scoreboard-summary strong { color: #f0f4ff; font-size: 17px; line-height: 1.2; }
+.scoreboard-summary span { margin-top: 3px; color: #91a0b8; font-size: 9px; }
+.scoreboard-list { flex: 1; min-height: 0; overflow: auto; padding: 16px; scrollbar-width: thin; scrollbar-color: #34425e transparent; }
+.scoreboard-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.scoreboard-list-heading h3 { margin: 0; color: #e2e9f7; font-size: 13px; }
+.scoreboard-list-heading span { color: #91a0b8; font-size: 10px; }
+.scoreboard-entry { margin-top: 9px; padding: 11px; border: 1px solid #2c3c56; border-radius: 8px; background: #101a2d; }
+.scoreboard-entry-heading, .scoreboard-entry-meta { display: flex; align-items: center; gap: 7px; }
+.scoreboard-entry-heading strong { min-width: 0; overflow: hidden; color: #e3eafa; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.scoreboard-entry-heading b { margin-left: auto; color: #83e1b5; font-size: 11px; white-space: nowrap; }
+.scoreboard-difficulty { padding: 2px 6px; border: 1px solid #34425d; border-radius: 4px; color: #bbc8e3; font-size: 9px; white-space: nowrap; }
+.scoreboard-entry-meta { justify-content: space-between; margin-top: 7px; color: #9eacc4; font-size: 10px; }
+.scoreboard-progress { height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: #25344e; }
+.scoreboard-progress span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6573df, #83e1b5); }
+.scoreboard-empty { padding: 26px 8px; color: #a3b0c7; text-align: center; }
+.scoreboard-empty-mark { display: inline-grid; width: 42px; height: 42px; place-items: center; border: 1px solid #354374; border-radius: 12px; background: #1a2445; color: #b5bfff; font-size: 21px; }
+.scoreboard-empty h3 { margin: 13px 0 5px; color: #dce5f8; font-size: 14px; }
+.scoreboard-empty p { margin: 0; font-size: 11px; }

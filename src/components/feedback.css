@@ -1,0 +1,17 @@
+.run-toast { position: fixed; right: 22px; bottom: 38px; z-index: 1200; display: flex; align-items: flex-start; gap: 10px; width: min(360px, calc(100vw - 32px)); padding: 13px 15px; border: 1px solid #385642; border-radius: 11px; background: #10251e; color: #dff9ea; box-shadow: 0 16px 40px #0008; animation: toast-in .2s ease-out; }
+.run-toast.failure { border-color: #75434d; background: #2b1823; color: #ffe2e4; }
+.run-toast-icon { flex: 0 0 auto; margin-top: 1px; color: #83e1b5; }
+.run-toast.failure .run-toast-icon { color: #ff9eaa; }
+.run-toast-copy { min-width: 0; }
+.run-toast-title { display: block; font-size: 12px; font-weight: 700; }
+.run-toast-message { display: block; margin-top: 2px; color: #b5d8c5; font-size: 11px; line-height: 1.45; }
+.run-toast.failure .run-toast-message { color: #e8b8be; }
+.run-toast-sparks { position: absolute; inset: -15px -8px -13px; pointer-events: none; }
+.run-toast-sparks span { position: absolute; color: #ffe27a; font-size: 14px; animation: spark-pop .75s ease-out both; }
+.run-toast-sparks span:nth-child(1) { top: 0; left: 18%; }
+.run-toast-sparks span:nth-child(2) { top: 4px; right: 19%; animation-delay: .08s; }
+.run-toast-sparks span:nth-child(3) { bottom: 0; left: 34%; animation-delay: .14s; }
+.run-toast-sparks span:nth-child(4) { bottom: 1px; right: 31%; animation-delay: .2s; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes spark-pop { from { opacity: 0; transform: scale(.3) rotate(-20deg); } 35% { opacity: 1; } to { opacity: 0; transform: scale(1.1) rotate(20deg) translateY(-5px); } }
+@media (max-width: 720px) { .run-toast { right: 16px; bottom: 32px; } }

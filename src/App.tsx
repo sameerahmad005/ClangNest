@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import {
-  Check, ChevronDown, ChevronRight, Copy, FileCode2, Folder, Settings, BookOpen,
+  Check, CheckCircle2, ChevronDown, ChevronRight, CircleX, Copy, FileCode2, Folder, Settings, BookOpen,
   Moon, PanelBottom, Play, Plus, RotateCcw, Save, Sun, Trash2,
-  X, Zap,
+  Trophy, X, Zap,
 } from "lucide-react";
 import "./app.css";
 import "./workspace.css";
+import "./components/feedback.css";
 import { runCpp } from "./lib/cpp-runner";
 import { CPP_STANDARD } from "./lib/cpp-runner/standard";
 import { createProjectStorage } from "./lib/project-storage";
@@ -15,8 +16,9 @@ import type { CppRunnerResult } from "./types/cpp-runner";
 import type { AiGenerationProgress, AiSettings, Difficulty, DsaTopic, PracticeCaseResult, PracticeProblem, PracticeScoreboard } from "./types/practice";
 import { generateProblem, loadAiSettings, saveAiSettings } from "./lib/ai-practice";
 import { evaluateCase, runPracticeTests } from "./lib/practice-evaluator";
-import { createPracticeRunId, getPracticeProblemId, getPracticeScoreEntry, getPracticeScoreTotals, getTopPracticeScoreEntries, readPracticeScoreboard, recordPracticeScore, resetPracticeScoreboard, writePracticeScoreboard } from "./lib/practice-scoreboard";
+import { createPracticeRunId, getPracticeProblemId, getPracticeScoreTotals, getTopPracticeScoreEntries, readPracticeScoreboard, recordPracticeScore, resetPracticeScoreboard, writePracticeScoreboard } from "./lib/practice-scoreboard";
 import { PracticePanel } from "./components/PracticePanel";
+import { ScoreboardPanel } from "./components/ScoreboardPanel";
 import { AiSettingsDialog } from "./components/AiSettingsDialog";
 
 const DEFAULT_SOURCE = `#include <iostream>
@@ -72,6 +74,7 @@ function resultText(result: CppRunnerResult | null, tab: PanelTab) {
 
 type PanelTab = "input" | "output" | "errors" | "examples";
 type RunPhase = "initializing" | "compiling" | "cached";
+type RunToast = { kind: "success" | "failure"; title: string; message: string };
 
 function runPhaseLabel(phase: RunPhase | null) {
   if (phase === "initializing") return "Initializing compiler assets…";
@@ -104,7 +107,7 @@ export function App() {
   const [storageError, setStorageError] = useState("");
   const [aiSettings, setAiSettings] = useState(loadAiSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leftTab, setLeftTab] = useState<"practice" | "projects">("practice");
+  const [leftTab, setLeftTab] = useState<"practice" | "scoreboard" | "projects">("practice");
   const [topic, setTopic] = useState<DsaTopic>("Arrays");
   const [difficulty, setDifficulty] = useState<Difficulty>("Easy");
   const [problem, setProblem] = useState<PracticeProblem | null>(null);
@@ -117,6 +120,7 @@ export function App() {
   const [selectedCase, setSelectedCase] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
   const [scoreboard, setScoreboard] = useState<PracticeScoreboard>(() => readPracticeScoreboard());
+  const [toast, setToast] = useState<RunToast | null>(null);
   const controller = useRef<AbortController | null>(null);
   const generationController = useRef<AbortController | null>(null);
   const evaluationEpoch = useRef(0);
@@ -144,6 +148,12 @@ export function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 3200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
   const invalidateEvaluation = () => {
     evaluationEpoch.current++;
     setTestResults([]);
@@ -157,6 +167,12 @@ export function App() {
     invalidateEvaluation();
     setStdin(test.input); setSelectedCase(index); setDirty(true); editVersion.current++;
     setTab("input"); setTerminalOpen(true);
+  };
+
+  const showTestToast = (passed: boolean, passedCases: number, totalCases: number) => {
+    setToast(passed
+      ? { kind: "success", title: totalCases === 1 ? "Test successful!" : "Tests successful!", message: `${passedCases}/${totalCases} example${totalCases === 1 ? "" : "s"} passed. Keep going!` }
+      : { kind: "failure", title: "Test failed", message: `${passedCases}/${totalCases} example${totalCases === 1 ? "" : "s"} passed. Check the output and diagnostics.` });
   };
 
   const generate = async () => {
@@ -310,7 +326,11 @@ export function App() {
       if (controller.current !== abort || evaluationEpoch.current !== epoch) return;
       setResult(next); setTab(next.status === "compile-error" || next.status === "runtime-error" ? "errors" : "output");
       const test = selectedCase !== null ? problem?.testCases[selectedCase] : undefined;
-      if (test && test.input === stdin) setTestResults([evaluateCase(selectedCase!, test, next)]);
+      if (test && test.input === stdin) {
+        const caseResult = evaluateCase(selectedCase!, test, next);
+        setTestResults([caseResult]);
+        showTestToast(caseResult.passed, caseResult.passed ? 1 : 0, 1);
+      }
       if (next.status === "success" || next.status === "compile-error") compilerInitialized.current = true;
       if (next.status === "success") lastCompiledSource.current = source;
       setNotice(runNotice(phase, next.durationMs));
@@ -351,11 +371,17 @@ export function App() {
             return next;
           });
           setTab("examples");
+          showTestToast(passedCases === problemSnapshot.testCases.length, passedCases, problemSnapshot.testCases.length);
+        } else if (completed.length > 0) {
+          showTestToast(false, completed.filter((test) => test.passed).length, problemSnapshot.testCases.length);
         }
         setNotice(completeRun && completed.every((test) => test.passed) ? "2/2 visible examples passed" : "Some examples failed or were not run; see DSA Practice");
       }
     } catch {
-      if (mounted.current && evaluationEpoch.current === epoch) setNotice("Test execution failed. Try running again.");
+      if (mounted.current && evaluationEpoch.current === epoch) {
+        setNotice("Test execution failed. Try running again.");
+        showTestToast(false, 0, problemSnapshot.testCases.length);
+      }
     } finally {
       if (controller.current === abort) { controller.current = null; setRunning(false); setTesting(false); }
     }
@@ -386,9 +412,8 @@ export function App() {
   const statusLabel = running ? (testing ? "Checking examples" : runPhaseLabel(runPhase)) : status === "success" ? "Finished" : status === "ready" ? "Ready" : status.replace("-", " ");
   const footerStatus = storageError || (running ? runPhaseLabel(runPhase) : notice || statusLabel);
   const output = useMemo(() => resultText(result, tab), [result, tab]);
-  const currentScore = getPracticeScoreEntry(scoreboard, topic, difficulty);
   const scoreTotals = getPracticeScoreTotals(scoreboard);
-  const topScoreEntries = getTopPracticeScoreEntries(scoreboard);
+  const scoreEntries = getTopPracticeScoreEntries(scoreboard, 36);
 
   return <div className="app-shell">
     <header className="topbar">
@@ -405,14 +430,14 @@ export function App() {
       <aside className={`sidebar practice-sidebar ${sidebarOpen ? "open" : "closed"}`}>
         <nav className="workspace-tabs" aria-label="Sidebar view">
           <button className={leftTab === "practice" ? "active" : ""} onClick={() => setLeftTab("practice")}><BookOpen size={14} /> DSA Practice</button>
+          <button className={leftTab === "scoreboard" ? "active" : ""} onClick={() => setLeftTab("scoreboard")}><Trophy size={14} /> Scoreboard</button>
           <button className={leftTab === "projects" ? "active" : ""} onClick={() => setLeftTab("projects")}><Folder size={14} /> Projects</button>
         </nav>
         {leftTab === "practice" ? <PracticePanel topic={topic} difficulty={difficulty} onTopicChange={setTopic} onDifficultyChange={setDifficulty}
            generationProgress={generationProgress} generationDurationMs={generationDurationMs} generationStartedAt={generationStartedAt}
            problem={problem} generating={generating} error={generationError} onGenerate={() => void generate()}
            onCancelGenerate={() => generationController.current?.abort()} onOpenSettings={() => setSettingsOpen(true)}
-           onUseCase={useCase} onRunTests={() => void runAllTests()} running={running} testResults={testResults} selectedCase={selectedCase}
-           currentScore={currentScore} scoreTotals={scoreTotals} topScoreEntries={topScoreEntries} onResetScoreboard={resetScoreboard} /> : <>
+           onUseCase={useCase} onRunTests={() => void runAllTests()} running={running} testResults={testResults} selectedCase={selectedCase} /> : leftTab === "scoreboard" ? <ScoreboardPanel scoreTotals={scoreTotals} entries={scoreEntries} onReset={resetScoreboard} /> : <>
         <div className="sidebar-heading"><span>PROJECTS</span><button className="tiny-btn" onClick={() => void newProject()} title="New project"><Plus size={15} /></button></div>
         <div className="project-list">
           {projects.map((item) => <button key={item.id} className={`project-row ${item.id === project?.id ? "selected" : ""}`} onClick={() => void selectProject(item.id)}><FileCode2 size={16} /><span>{item.name}</span>{item.id === project?.id && <span className="project-check"><Check size={13} /></span>}</button>)}
@@ -432,8 +457,13 @@ export function App() {
            {terminalOpen && <div className="terminal-body"><div className="terminal-tabs">{(["input", "output", "errors", "examples"] as PanelTab[]).map((item) => <button key={item} className={tab === item ? "active" : ""} onClick={() => setTab(item)}>{item === "input" ? "Input" : item === "output" ? "Output" : item === "examples" ? "Examples" : `Errors${result?.diagnostics.length ? ` (${result.diagnostics.length})` : ""}`}</button>)}</div><div className="terminal-content">{tab === "input" ? <textarea aria-label="Program input" value={stdin} onChange={(event) => { invalidateEvaluation(); setSelectedCase(null); editVersion.current++; setStdin(event.target.value); setDirty(true); }} placeholder="Enter stdin here..." spellCheck={false} /> : tab === "examples" ? <div className="terminal-examples">{!problem ? <p className="terminal-empty">Generate a DSA question to see its visible examples here.</p> : problem.testCases.map((testCase, index) => { const caseResult = testResults.find((item) => item.index === index); const casePassed = caseResult?.passed && caseResult.result.status === "success"; const caseRun = caseResult?.result; return <article className="terminal-example" key={index}><div className="terminal-example-head"><strong>Example {index + 1}</strong><span className={caseResult ? (casePassed ? "terminal-pass" : "terminal-fail") : "terminal-pending"}>{caseResult ? (casePassed ? "Passed" : "Failed") : "Not run"}</span><button className="terminal-use-case" type="button" onClick={() => useCase(index)} disabled={running || generating}>Use input</button></div><div className="terminal-example-grid"><div><span>Input</span><pre>{testCase.input || "(empty input)"}</pre></div><div><span>Expected output</span><pre>{testCase.expectedOutput || "(empty output)"}</pre></div></div>{caseRun && <div className="terminal-example-result"><span>Actual output</span><pre>{caseRun.stdout || "(empty output)"}</pre>{caseRun.stderr && <><span>Standard error</span><pre className="error-text">{caseRun.stderr}</pre></>}{caseRun.compileOutput && <><span>Compiler output</span><pre className="error-text">{caseRun.compileOutput}</pre></>}{caseRun.diagnostics.length > 0 && <><span>Compile diagnostics</span><pre className="error-text">{caseRun.diagnostics.map((item) => `${item.file ?? "main.cpp"}${item.line !== undefined ? `:${item.line}` : ""}${item.column !== undefined ? `:${item.column}` : ""} ${item.severity}: ${item.message}`).join("\n\n")}</pre></>}</div>}</article>; })}</div> : <pre className={tab === "errors" ? "error-text" : ""}>{output}</pre>}</div></div>}
         </div>
          <footer className="statusbar"><span role={storageError ? "alert" : "status"}><span className={`status-led ${running ? "busy" : ""}`} />{footerStatus}</span><span>Clang / WASI · {CPP_STANDARD}</span><span className="font-control">Font <button onClick={() => setFontSize((value) => Math.max(12, value - 1))}>−</button><strong>{fontSize}</strong><button onClick={() => setFontSize((value) => Math.min(22, value + 1))}>+</button></span></footer>
-      </main>
+     </main>
     </div>
+    {toast && <div className={`run-toast ${toast.kind === "failure" ? "failure" : "success"}`} role={toast.kind === "failure" ? "alert" : "status"} aria-live="polite">
+      {toast.kind === "success" && <div className="run-toast-sparks" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span><span>✧</span></div>}
+      <span className="run-toast-icon" aria-hidden="true">{toast.kind === "success" ? <CheckCircle2 size={18} /> : <CircleX size={18} />}</span>
+      <span className="run-toast-copy"><strong className="run-toast-title">{toast.title}</strong><span className="run-toast-message">{toast.message}</span></span>
+    </div>}
     {settingsOpen && <AiSettingsDialog settings={aiSettings} onSave={saveProviderSettings} onClose={() => setSettingsOpen(false)} />}
   </div>;
 }
