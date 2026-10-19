@@ -99,7 +99,26 @@ it("shows the Examples terminal tab with both cases and keeps it available when 
   expect(host.querySelector(".terminal-tabs")?.textContent).toContain("Examples");
 });
 
-it("lets the terminal Examples tab select an input and ordinary Run does not score", async () => {
+it("updates the scoreboard after the first visible case passes during Run 2 tests", async () => {
+  let resolveSecond!: (value: CppRunnerResult) => void;
+  vi.mocked(runCpp)
+    .mockResolvedValueOnce({ status: "success", stdout: "14\n", stderr: "", compileOutput: "", diagnostics: [], exitCode: 0, durationMs: 1, outputTruncated: false })
+    .mockImplementationOnce(() => new Promise(resolve => { resolveSecond = resolve; }));
+  await mount(); await click("Generate question");
+  await act(async () => {
+    const button = [...host.querySelectorAll("button")].find(item => item.textContent?.trim() === "Run 2 tests")!;
+    button.click();
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  await click("Scoreboard");
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("1Total points");
+  expect(host.querySelector(".scoreboard-entry")?.textContent).toContain("1/1 cases passed");
+  await act(async () => resolveSecond({ status: "success", stdout: "42\n", stderr: "", compileOutput: "", diagnostics: [], exitCode: 0, durationMs: 1, outputTruncated: false }));
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("2Total points");
+  expect(host.querySelector(".scoreboard-entry")?.textContent).toContain("2/2 cases passed");
+});
+
+it("lets the terminal Examples tab select an input and ordinary Run scores the completed case", async () => {
   await mount(); await click("Generate question");
   await click("Examples");
   const useInput = host.querySelector<HTMLButtonElement>(".terminal-use-case")!;
@@ -107,7 +126,8 @@ it("lets the terminal Examples tab select an input and ordinary Run does not sco
   expect(host.querySelector<HTMLTextAreaElement>('[aria-label="Program input"]')?.value).toBe("5 9\n");
   await click("RunCtrl ↵");
   await click("Scoreboard");
-  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("0Total points");
+  expect(host.querySelector(".scoreboard-summary")?.textContent).toContain("1Total points");
+  expect(host.querySelector(".scoreboard-entry")?.textContent).toContain("1/1 cases passed");
   expect(host.querySelector(".run-toast.success")?.textContent).toContain("Test successful!");
 });
 

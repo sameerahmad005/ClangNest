@@ -14,6 +14,15 @@ export interface RecordPracticeScoreInput {
   totalCases?: number;
 }
 
+export interface RecordPracticeCaseScoreInput {
+  topic: DsaTopic;
+  difficulty: Difficulty;
+  problemId: string;
+  runId: string;
+  caseIndex: number;
+  passed: boolean;
+}
+
 export interface ScoreboardSummary {
   points: number;
   attempts: number;
@@ -153,6 +162,27 @@ export function recordPracticeScore(scoreboard: PracticeScoreboard, input: Recor
     passedCases: current.passedCases + passedCases,
     totalCases: current.totalCases + totalCases,
     recordedRuns: [...current.recordedRuns, runKey],
+  };
+  return { version: 1, entries: { ...scoreboard.entries, [key]: nextEntry } };
+}
+
+/** Record one completed visible case immediately while keeping one attempt per run. */
+export function recordPracticeCaseScore(scoreboard: PracticeScoreboard, input: RecordPracticeCaseScoreInput): PracticeScoreboard {
+  if (!input.problemId || !input.runId || !Number.isInteger(input.caseIndex) || input.caseIndex < 0) return scoreboard;
+  const key = scoreboardCategoryKey(input.topic, input.difficulty);
+  const current = getPracticeScoreEntry(scoreboard, input.topic, input.difficulty);
+  const runKey = `${input.problemId}::${input.runId}`;
+  const caseKey = `${runKey}::case-${input.caseIndex}`;
+  if (current.recordedRuns.includes(caseKey)) return scoreboard;
+  const runAlreadyCounted = current.recordedRuns.some(recordedRun => recordedRun.startsWith(`${runKey}::case-`));
+  const passedCases = input.passed ? 1 : 0;
+  const nextEntry: PracticeScoreEntry = {
+    ...current,
+    points: current.points + passedCases,
+    attempts: current.attempts + (runAlreadyCounted ? 0 : 1),
+    passedCases: current.passedCases + passedCases,
+    totalCases: current.totalCases + 1,
+    recordedRuns: [...current.recordedRuns, caseKey],
   };
   return { version: 1, entries: { ...scoreboard.entries, [key]: nextEntry } };
 }

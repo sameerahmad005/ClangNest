@@ -5,6 +5,7 @@ import {
   getPracticeScoreEntry,
   getPracticeScoreTotals,
   readPracticeScoreboard,
+  recordPracticeCaseScore,
   recordPracticeScore,
   resetPracticeScoreboard,
   writePracticeScoreboard,
@@ -43,6 +44,14 @@ it("deduplicates the same problem/run while allowing a later attempt", () => {
   expect(duplicate).toBe(first);
   const later = recordPracticeScore(duplicate, { topic: "Arrays", difficulty: "Easy", problemId: "same-problem", runId: "later-run", passedCases: 1 });
   expect(getPracticeScoreEntry(later, "Arrays", "Easy")).toMatchObject({ points: 3, attempts: 2, passedCases: 3, totalCases: 4 });
+});
+
+it("updates one run immediately as each visible case completes", () => {
+  const first = recordPracticeCaseScore(readPracticeScoreboard(), { topic: "Arrays", difficulty: "Easy", problemId: "p1", runId: "run-1", caseIndex: 0, passed: true });
+  expect(getPracticeScoreEntry(first, "Arrays", "Easy")).toMatchObject({ points: 1, attempts: 1, passedCases: 1, totalCases: 1 });
+  const second = recordPracticeCaseScore(first, { topic: "Arrays", difficulty: "Easy", problemId: "p1", runId: "run-1", caseIndex: 1, passed: false });
+  expect(getPracticeScoreEntry(second, "Arrays", "Easy")).toMatchObject({ points: 1, attempts: 1, passedCases: 1, totalCases: 2 });
+  expect(recordPracticeCaseScore(second, { topic: "Arrays", difficulty: "Easy", problemId: "p1", runId: "run-1", caseIndex: 0, passed: true })).toBe(second);
 });
 
 it("creates a stable opaque identity from the generated problem", () => {

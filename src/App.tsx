@@ -16,7 +16,7 @@ import type { CppRunnerResult } from "./types/cpp-runner";
 import type { AiGenerationProgress, AiSettings, Difficulty, DsaTopic, PracticeCaseResult, PracticeProblem, PracticeScoreboard } from "./types/practice";
 import { generateProblem, loadAiSettings, saveAiSettings } from "./lib/ai-practice";
 import { evaluateCase, runPracticeTests } from "./lib/practice-evaluator";
-import { createPracticeRunId, getPracticeProblemId, getPracticeScoreTotals, getTopPracticeScoreEntries, readPracticeScoreboard, recordPracticeScore, resetPracticeScoreboard, writePracticeScoreboard } from "./lib/practice-scoreboard";
+import { createPracticeRunId, getPracticeProblemId, getPracticeScoreTotals, getTopPracticeScoreEntries, readPracticeScoreboard, recordPracticeCaseScore, resetPracticeScoreboard, writePracticeScoreboard } from "./lib/practice-scoreboard";
 import { PracticePanel } from "./components/PracticePanel";
 import { ScoreboardPanel } from "./components/ScoreboardPanel";
 import { AiSettingsDialog } from "./components/AiSettingsDialog";
@@ -315,6 +315,7 @@ export function App() {
   const run = async () => {
     if (controller.current || generationController.current || settingsOpen) return;
     const epoch = evaluationEpoch.current;
+    const runId = createPracticeRunId();
     const abort = new AbortController(); controller.current = abort;
     const phase: RunPhase = compilerInitialized.current && lastCompiledSource.current === source
       ? "cached"
@@ -329,6 +330,14 @@ export function App() {
       if (test && test.input === stdin) {
         const caseResult = evaluateCase(selectedCase!, test, next);
         setTestResults([caseResult]);
+        if (problem) {
+          const problemId = getPracticeProblemId(problem);
+          setScoreboard((previous) => {
+            const updated = recordPracticeCaseScore(previous, { topic: problem.topic, difficulty: problem.difficulty, problemId, runId, caseIndex: selectedCase!, passed: caseResult.passed });
+            if (updated !== previous) writePracticeScoreboard(updated);
+            return updated;
+          });
+        }
         showTestToast(caseResult.passed, caseResult.passed ? 1 : 0, 1);
       }
       if (next.status === "success" || next.status === "compile-error") compilerInitialized.current = true;
@@ -358,18 +367,18 @@ export function App() {
       const completed = await runPracticeTests(source, problem.testCases, abort.signal, (test) => {
         if (controller.current !== abort || evaluationEpoch.current !== epoch) return;
         setTestResults((previous) => [...previous, test]); setResult(test.result);
+        setScoreboard((previous) => {
+          const updated = recordPracticeCaseScore(previous, { topic: problemSnapshot.topic, difficulty: problemSnapshot.difficulty, problemId, runId, caseIndex: test.index, passed: test.passed });
+          if (updated !== previous) writePracticeScoreboard(updated);
+          return updated;
+        });
         setSelectedCase(test.index); setStdin(problem.testCases[test.index].input); setDirty(true); editVersion.current++;
         setTab(test.result.status === "compile-error" || test.result.status === "runtime-error" ? "errors" : "output");
       });
       if (evaluationEpoch.current === epoch && mounted.current) {
         const completeRun = completed.length === problemSnapshot.testCases.length;
+        const passedCases = completed.filter((test) => test.passed).length;
         if (completeRun) {
-          const passedCases = completed.filter((test) => test.passed).length;
-          setScoreboard((previous) => {
-            const next = recordPracticeScore(previous, { topic: problemSnapshot.topic, difficulty: problemSnapshot.difficulty, problemId, runId, passedCases, totalCases: 2 });
-            if (next !== previous) writePracticeScoreboard(next);
-            return next;
-          });
           setTab("examples");
           showTestToast(passedCases === problemSnapshot.testCases.length, passedCases, problemSnapshot.testCases.length);
         } else if (completed.length > 0) {
